@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foto Resizer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="theme-color" content="#14325C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Foto Resizer">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  /* Layout: eine Spalte, Karten untereinander, Bedienung von oben nach unten */
+  --bg:#F3F5F9; --surface:#FFFFFF; --ink:#14233A; --muted:#55627A;
+  --brand:#14325C; --on-brand:#FFFFFF; --line:#D5DBE6; --ok:#1B6E3C; --warn:#9A4300;
+  --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1626; --surface:#16233A; --ink:#EEF2F8; --muted:#A9B4C6;
+    --brand:#DCE7F7; --on-brand:#14325C; --line:#2B3A55; --ok:#7BD39A; --warn:#F2B36B;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1626; --surface:#16233A; --ink:#EEF2F8; --muted:#A9B4C6;
+  --brand:#DCE7F7; --on-brand:#14325C; --line:#2B3A55; --ok:#7BD39A; --warn:#F2B36B;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45}
+main{max-width:720px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:16px}
+header{display:flex;align-items:center;gap:14px}
+header svg{flex:none;border-radius:13px}
+h1{font-size:26px;margin:0;font-weight:700;text-wrap:balance}
+h2{font-size:17px;margin:0;font-weight:600}
+.sub{margin:0;color:var(--muted);font-size:14px}
+section{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:inherit;font-weight:600;min-height:46px;padding:10px 16px;border-radius:10px;border:1.5px solid var(--brand);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+.btn.primary{background:var(--brand);color:var(--on-brand)}
+.btn.small{min-height:44px;padding:8px 12px;font-size:14px;border-color:var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #4C8DF6;outline-offset:2px}
+.file{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.file:focus-visible + label{outline:3px solid #4C8DF6;outline-offset:2px}
+.seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+@media (max-width:480px){.seg{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.seg .btn{padding:8px 6px;font-size:15px;border-color:var(--line)}
+.seg .btn[aria-pressed="true"]{background:var(--brand);color:var(--on-brand);border-color:var(--brand)}
+.panel{display:flex;flex-direction:column;gap:10px}
+.panel[hidden]{display:none}
+label.lab{font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:4px;flex:1 1 140px;min-width:0}
+input[type=number],input[type=text],select{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;min-height:46px;padding:8px 12px;width:100%}
+input[type=range]{width:100%;min-height:36px;accent-color:var(--brand)}
+.big{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.msg{font-size:14px;margin:0}
+.msg.warn{color:var(--warn);font-weight:600}
+.msg.ok{color:var(--ok);font-weight:600}
+#list{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;gap:12px;align-items:flex-start}
+.card img{width:96px;height:96px;object-fit:cover;border-radius:8px;background:var(--bg);flex:none}
+.card .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.card .name{font-weight:600;overflow-wrap:anywhere}
+.nums{font-size:14px;font-variant-numeric:tabular-nums;color:var(--muted);margin:0}
+.nums b{color:var(--ink)}
+.pill{display:inline-block;font-size:13px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.pill.ok{color:var(--ok);border-color:var(--ok)}
+footer{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<header>
+<svg width="56" height="56" viewBox="0 0 320 320" role="img" aria-label="Logo Foto Resizer">
+<rect x="0" y="0" width="320" height="320" fill="#14325C"></rect>
+<rect x="56" y="56" width="208" height="208" rx="20" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="8" stroke-dasharray="14 12"></rect>
+<rect x="56" y="144" width="120" height="120" rx="16" fill="#FFFFFF"></rect>
+<path d="M68 252 L104 204 L126 230 L142 212 L164 252 Z" fill="#14325C"></path>
+<circle cx="148" cy="172" r="10" fill="#14325C"></circle>
+<path d="M238 82 L196 124 M196 96 L196 124 L224 124" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<div>
+<h1>Foto Resizer</h1>
+<p class="sub">Fotos verkleinern und als Kopie speichern</p>
+</div>
+</header>
+
+<section aria-labelledby="h-pick">
+<h2 id="h-pick">1. Fotos wählen</h2>
+<div class="row">
+<input class="file" type="file" id="pick" accept="image/*" multiple>
+<label class="btn primary" for="pick">Fotos auswählen</label>
+<input class="file" type="file" id="cam" accept="image/*" capture="environment">
+<label class="btn" for="cam">Foto aufnehmen</label>
+<button class="btn small" type="button" id="clear" hidden>Liste leeren</button>
+</div>
+<p class="sub">Im Auswahlfenster stehen Fotomediathek, Kamera und „Dateien“ bereit, darüber auch Google Drive.</p>
+</section>
+
+<section aria-labelledby="h-size">
+<h2 id="h-size">2. Verkleinern auf</h2>
+<div class="seg" id="modes">
+<button class="btn" type="button" data-mode="pct" aria-pressed="false">Prozent</button>
+<button class="btn" type="button" data-mode="preset" aria-pressed="true">Format</button>
+<button class="btn" type="button" data-mode="free" aria-pressed="false">Freie Größe</button>
+<button class="btn" type="button" data-mode="mb" aria-pressed="false">Dateigröße</button>
+</div>
+
+<div class="panel" id="p-pct" hidden>
+<div class="row"><span class="big" id="pctOut">50 %</span><span class="sub">der Originalgröße (Breite und Höhe)</span></div>
+<input type="range" id="pct" min="10" max="90" step="5" value="50" aria-label="Prozent der Originalgröße">
+<div class="row">
+<button class="btn small" type="button" data-pct="25">25 %</button>
+<button class="btn small" type="button" data-pct="50">50 %</button>
+<button class="btn small" type="button" data-pct="75">75 %</button>
+</div>
+</div>
+
+<div class="panel" id="p-preset">
+<label class="lab" for="preset">Format (Breite × Höhe)
+<select id="preset">
+<option value="640x480">640 × 480 (VGA) – sehr kleine Mail-Anhänge</option>
+<option value="800x600">800 × 600 (SVGA) – Mail, Foren</option>
+<option value="1024x768">1024 × 768 (XGA) – Mail, gut lesbar</option>
+<option value="1280x720">1280 × 720 (HD) – Web</option>
+<option value="1600x1200" selected>1600 × 1200 (UXGA) – Mail in guter Qualität</option>
+<option value="1920x1080">1920 × 1080 (Full HD) – Web, bildschirmfüllend</option>
+<option value="2560x1440">2560 × 1440 (WQHD) – große Bildschirme</option>
+<option value="3840x2160">3840 × 2160 (4K) – maximale Qualität</option>
+</select>
+</label>
+<p class="sub">Das Foto wird in das Format eingepasst, ohne Verzerren und ohne Beschneiden. Hochformat-Fotos werden hochkant eingepasst.</p>
+</div>
+
+<div class="panel" id="p-free" hidden>
+<div class="row">
+<label class="lab" for="fw">Breite in Pixel<input type="number" id="fw" inputmode="numeric" min="50" step="1" placeholder="z. B. 1200"></label>
+<label class="lab" for="fh">Höhe in Pixel<input type="number" id="fh" inputmode="numeric" min="50" step="1" placeholder="wird berechnet"></label>
+</div>
+<p class="sub">Ein Wert genügt, der andere wird aus dem Seitenverhältnis des ersten Fotos berechnet.</p>
+</div>
+
+<div class="panel" id="p-mb" hidden>
+<label class="lab" for="mb">Höchstens so groß (in MB)
+<select id="mb">
+<option value="0.2">0,2 MB</option>
+<option value="0.5">0,5 MB</option>
+<option value="1">1 MB</option>
+<option value="2" selected>2 MB</option>
+<option value="5">5 MB</option>
+</select>
+</label>
+<p class="sub">Die App senkt erst die Qualitätsstufe und verkleinert erst danach die Pixelmaße. PNG ist hier nicht möglich, die Kopie wird dann JPEG.</p>
+</div>
+<p class="msg warn" id="sizeMsg" role="alert" hidden></p>
+</section>
+
+<section aria-labelledby="h-out">
+<h2 id="h-out">3. Ausgabe</h2>
+<div class="row">
+<label class="lab" for="fmt">Dateiformat
+<select id="fmt">
+<option value="image/jpeg" selected>JPEG (Standard, für Fotos)</option>
+<option value="image/png">PNG (verlustfrei, große Dateien)</option>
+<option value="image/webp">WebP (klein, fürs Web)</option>
+</select>
+</label>
+<label class="lab" for="suffix">Zusatz im Dateinamen
+<input type="text" id="suffix" value="_klein" maxlength="30" autocomplete="off">
+</label>
+</div>
+<label class="lab" for="q">Qualität: <span id="qOut">90 %</span>
+<input type="range" id="q" min="50" max="100" step="5" value="90">
+</label>
+<p class="sub">Verkleinert wird stufenweise mit hochwertiger Glättung. Standort- und Kameradaten kommen nicht in die Kopie.</p>
+</section>
+
+<div class="row">
+<button class="btn primary" type="button" id="go" style="flex:1 1 220px">Verkleinern</button>
+<button class="btn" type="button" id="zip" hidden>Alle als ZIP speichern</button>
+</div>
+<p class="msg" id="status" role="status"></p>
+
+<div id="list" aria-live="polite"></div>
+
+<footer>Die Originale bleiben unverändert. Die Fotos werden nur auf diesem Gerät verarbeitet und nirgendwohin hochgeladen.</footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function(){
+'use strict';
+var MAXAREA = 16000000; // Safari erlaubt Zeichenflächen bis rund 16,7 Megapixel
+var $ = function(id){ return document.getElementById(id); };
+var items = [];
+var nextId = 1;
+var busy = false;
+var dl = null;
+var S = { mode:'preset', pct:50, preset:'1600x1200', fw:'', fh:'', mb:'2', fmt:'image/jpeg', q:90, suffix:'_klein' };
+
+try { var saved = JSON.parse(localStorage.getItem('fotoResizer') || 'null'); if (saved) { for (var k in S) { if (saved[k] !== undefined) S[k] = saved[k]; } } } catch (e) {}
+function persist(){ try { localStorage.setItem('fotoResizer', JSON.stringify(S)); } catch (e) {} }
+
+try { if (window.claude && window.claude.use) { window.claude.use('downloads').then(function(n){ dl = n; }).catch(function(){}); } } catch (e) {}
+
+function fmtBytes(n){
+  if (n >= 1048576) return (n / 1048576).toFixed(n >= 10485760 ? 1 : 2).replace('.', ',') + ' MB';
+  return Math.max(1, Math.round(n / 1024)) + ' KB';
+}
+function extFor(type){ return type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg'; }
+function setStatus(text, cls){ var s = $('status'); s.textContent = text || ''; s.className = 'msg' + (cls ? ' ' + cls : ''); }
+function dims(it){ var swap = it.rot % 180 !== 0; return { w: swap ? it.h0 : it.w0, h: swap ? it.w0 : it.h0 }; }
+function mkCanvas(w, h){ var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function toBlob(canvas, type, q){ return new Promise(function(res){ canvas.toBlob(function(b){ res(b); }, type, q); }); }
+
+/* ---------- Einstellungen in die Oberfläche ---------- */
+function applySettings(){
+  var btns = document.querySelectorAll('#modes .btn');
+  for (var i = 0; i < btns.length; i++) btns[i].setAttribute('aria-pressed', btns[i].dataset.mode === S.mode ? 'true' : 'false');
+  ['pct','preset','free','mb'].forEach(function(m){ $('p-' + m).hidden = (m !== S.mode); });
+  $('pct').value = S.pct; $('pctOut').textContent = S.pct + ' %';
+  $('preset').value = S.preset; $('fw').value = S.fw; $('fh').value = S.fh; $('mb').value = S.mb;
+  $('fmt').value = S.fmt; $('q').value = S.q; $('qOut').textContent = S.q + ' %'; $('suffix').value = S.suffix;
+  $('q').disabled = (S.fmt === 'image/png' || S.mode === 'mb');
+  $('sizeMsg').hidden = true;
+}
+
+/* ---------- Fotos laden ---------- */
+function loadFile(file, example){
+  return new Promise(function(resolve){
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function(){
+      resolve({ id: nextId++, file: file, name: file.name || 'Foto.jpg', url: url, img: img, w0: img.naturalWidth, h0: img.naturalHeight, size: file.size, rot: 0, result: null, example: !!example });
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+function addFiles(fileList){
+  var files = Array.prototype.slice.call(fileList || []);
+  if (!files.length) return;
+  items = items.filter(function(it){ if (it.example) { release(it); return false; } return true; });
+  setStatus('Fotos werden geladen …');
+  Promise.all(files.map(function(f){ return loadFile(f, false); })).then(function(loaded){
+    var bad = 0;
+    loaded.forEach(function(it){ if (it) items.push(it); else bad++; });
+    setStatus(bad ? bad + ' Datei(en) konnte dieser Browser nicht öffnen (zum Beispiel HEIC auf Android). Bitte als JPEG oder PNG auswählen.' : '', bad ? 'warn' : '');
+    syncFree('fw'); render();
+  });
+}
+function release(it){ try { URL.revokeObjectURL(it.url); if (it.result) URL.revokeObjectURL(it.result.url); } catch (e) {} }
+
+/* ---------- Zielgröße berechnen ---------- */
+function clampArea(w, h){
+  if (w * h > MAXAREA) { var s = Math.sqrt(MAXAREA / (w * h)); return { w: Math.floor(w * s), h: Math.floor(h * s), capped: true }; }
+  return { w: w, h: h, capped: false };
+}
+function targetFor(it){
+  var d = dims(it), scale = 1, note = '';
+  if (S.mode === 'pct') {
+    scale = S.pct / 100;
+  } else if (S.mode === 'preset') {
+    var p = S.preset.split('x'), bw = +p[0], bh = +p[1];
+    if (d.h > d.w) { var t = bw; bw = bh; bh = t; }
+    scale = Math.min(bw / d.w, bh / d.h);
+  } else if (S.mode === 'free') {
+    scale = Math.min((+S.fw) / d.w, (+S.fh) / d.h);
+  }
+  if (scale >= 1) { scale = 1; if (S.mode !== 'mb' && S.mode !== 'pct') note = 'Original ist schon kleiner, nicht vergrößert.'; }
+  var c = clampArea(Math.max(1, Math.round(d.w * scale)), Math.max(1, Math.round(d.h * scale)));
+  if (c.capped) note = 'Auf 16 Megapixel begrenzt (Grenze des Browsers).';
+  return { w: c.w, h: c.h, note: note };
+}
+
+/* ---------- Verkleinern in bestmöglicher Qualität ---------- */
+function draw(it, tw, th, type){
+  var swap = it.rot % 180 !== 0;
+  var uw = swap ? th : tw, uh = swap ? tw : th;
+  var src = it.img, cw = it.w0, ch = it.h0, prev = null;
+  for (var guard = 0; guard < 12; guard++) {
+    var nw = Math.max(uw, Math.round(cw / 2)), nh = Math.max(uh, Math.round(ch / 2));
+    if (nw * nh > MAXAREA) { var s = Math.sqrt(MAXAREA / (nw * nh)); nw = Math.max(uw, Math.floor(nw * s)); nh = Math.max(uh, Math.floor(nh * s)); }
+    var c = mkCanvas(nw, nh), x = c.getContext('2d');
+    x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+    x.drawImage(src, 0, 0, nw, nh);
+    if (prev) { prev.width = 0; prev.height = 0; }
+    prev = c; src = c; cw = nw; ch = nh;
+    if (nw === uw && nh === uh) break;
+  }
+  var out = mkCanvas(tw, th), o = out.getContext('2d');
+  if (type === 'image/jpeg') { o.fillStyle = '#FFFFFF'; o.fillRect(0, 0, tw, th); }
+  o.translate(tw / 2, th / 2); o.rotate(it.rot * Math.PI / 180);
+  o.drawImage(src, -uw / 2, -uh / 2);
+  if (prev) { prev.width = 0; prev.height = 0; }
+  return out;
+}
+function encode(canvas, type, q){
+  return toBlob(canvas, type, q).then(function(b){
+    if (b && b.type === type) return { blob: b, type: type, note: '' };
+    return toBlob(canvas, 'image/jpeg', q).then(function(j){ return { blob: j, type: 'image/jpeg', note: 'Dieser Browser kann das Format nicht schreiben, gespeichert als JPEG.' }; });
+  });
+}
+async function processOne(it){
+  var t = targetFor(it), type = S.fmt, notes = [];
+  if (t.note) notes.push(t.note);
+  var canvas, enc;
+  if (S.mode === 'mb') {
+    if (type === 'image/png') { type = 'image/jpeg'; notes.push('PNG geht bei Zielgröße nicht, gespeichert als JPEG.'); }
+    var limit = (+S.mb) * 1048576, w = t.w, h = t.h;
+    for (var round = 0; round < 7; round++) {
+      canvas = draw(it, w, h, type);
+      enc = await encode(canvas, type, 0.92);
+      if (enc.blob.size <= limit) break;
+      var lo = 0.5, hi = 0.92, best = null;
+      var low = await encode(canvas, type, lo);
+      if (low.blob.size <= limit) {
+        best = low;
+        for (var i = 0; i < 5; i++) {
+          var mid = (lo + hi) / 2, m = await encode(canvas, type, mid);
+          if (m.blob.size <= limit) { best = m; lo = mid; } else { hi = mid; }
+        }
+        enc = best; break;
+      }
+      var f = Math.min(0.9, Math.sqrt(limit / low.blob.size));
+      w = Math.max(50, Math.round(w * f)); h = Math.max(50, Math.round(h * f));
+      enc = low;
+      canvas.width = 0; canvas.height = 0;
+    }
+    if (enc.blob.size > limit) notes.push('Zielgröße nicht ganz erreicht.');
+    t.w = w; t.h = h;
+  } else {
+    canvas = draw(it, t.w, t.h, type);
+    enc = await encode(canvas, type, S.q / 100);
+  }
+  if (enc.note) notes.push(enc.note);
+  if (canvas) { canvas.width = 0; canvas.height = 0; }
+  if (it.result) { try { URL.revokeObjectURL(it.result.url); } catch (e) {} }
+  var base = it.name.replace(/\.[^.]+$/, '');
+  it.result = { blob: enc.blob, w: t.w, h: t.h, url: URL.createObjectURL(enc.blob), name: base + (S.suffix || '') + '.' + extFor(enc.type), note: notes.join(' ') };
+}
+
+function validate(){
+  var msg = '';
+  if (S.mode === 'free') {
+    var w = +S.fw, h = +S.fh, first = items[0];
+    if (!S.fw && !S.fh) msg = 'Bitte eine Breite oder eine Höhe eingeben.';
+    else if (!(w >= 50) || !(h >= 50) || w % 1 !== 0 || h % 1 !== 0) msg = 'Breite und Höhe müssen ganze Zahlen ab 50 Pixel sein.';
+    else if (first) { var d = dims(first); if (w > d.w || h > d.h) msg = 'Das ist größer als das Original (' + d.w + ' × ' + d.h + '). Vergrößern macht das Bild nur unscharf. Bitte kleinere Werte eingeben.'; }
+  }
+  var el = $('sizeMsg'); el.textContent = msg; el.hidden = !msg;
+  return !msg;
+}
+async function run(){
+  if (busy) return;
+  if (!items.length) { setStatus('Bitte zuerst Fotos auswählen.', 'warn'); return; }
+  if (!validate()) return;
+  busy = true; $('go').disabled = true;
+  var failed = 0;
+  for (var i = 0; i < items.length; i++) {
+    setStatus('Foto ' + (i + 1) + ' von ' + items.length + ' wird verkleinert …');
+    try { await processOne(items[i]); } catch (e) { items[i].result = null; failed++; }
+    render();
+    await new Promise(function(r){ setTimeout(r, 0); });
+  }
+  busy = false; $('go').disabled = false;
+  if (failed) setStatus(failed + ' Foto(s) konnten nicht verkleinert werden. Mit einem kleineren Format noch einmal versuchen.', 'warn');
+  else setStatus(items.length === 1 ? 'Fertig. Jetzt die Kopie speichern.' : 'Fertig. Kopien einzeln oder alle als ZIP speichern.', 'ok');
+}
+
+/* ---------- Speichern ---------- */
+async function saveBlob(blob, name){
+  if (dl) {
+    try { await dl.save({ filename: name, data: blob }); return 'ok'; }
+    catch (e) { if (e && e.code === 'declined') return 'declined'; if (e && e.code === 'rate_limited') return 'busy'; }
+  }
+  try {
+    var f = new File([blob], name, { type: blob.type });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return 'ok'; }
+  } catch (e) { if (e && e.name === 'AbortError') return 'declined'; }
+  try {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); return 'ok';
+  } catch (e) { return 'fail'; }
+}
+function reportSave(r, name){
+  if (r === 'ok') setStatus('„' + name + '“ wurde zum Speichern übergeben.', 'ok');
+  else if (r === 'declined') setStatus('Speichern abgebrochen.');
+  else if (r === 'busy') setStatus('Es ist noch ein Speichern-Fenster offen. Bitte kurz warten und noch einmal tippen.', 'warn');
+  else setStatus('Speichern ist in dieser Ansicht nicht möglich.', 'warn');
+}
+async function saveZip(){
+  var done = items.filter(function(it){ return it.result; });
+  if (!done.length || typeof JSZip === 'undefined') { setStatus('ZIP ist gerade nicht verfügbar. Bitte die Kopien einzeln speichern.', 'warn'); return; }
+  setStatus('ZIP wird gepackt …');
+  var zip = new JSZip(), used = {};
+  done.forEach(function(it){
+    var n = it.result.name, i = 2;
+    while (used[n]) { n = it.result.name.replace(/(\.[^.]+)$/, '_' + i + '$1'); i++; }
+    used[n] = true; zip.file(n, it.result.blob);
+  });
+  var blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+  reportSave(await saveBlob(blob, 'Fotos' + (S.suffix || '_klein') + '.zip'), 'ZIP');
+}
+
+/* ---------- Liste ---------- */
+function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+function render(){
+  var list = $('list'); list.textContent = '';
+  var ready = 0;
+  items.forEach(function(it){
+    var d = dims(it), card = el('div', 'card');
+    var im = el('img'); im.alt = ''; im.src = it.result ? it.result.url : it.url;
+    if (!it.result && it.rot) im.style.transform = 'rotate(' + it.rot + 'deg)';
+    card.appendChild(im);
+    var info = el('div', 'info');
+    var top = el('div', 'row');
+    top.appendChild(el('span', 'name', it.name));
+    if (it.example) top.appendChild(el('span', 'pill', 'Beispielbild'));
+    info.appendChild(top);
+    var a = el('p', 'nums'); a.textContent = 'Original: ' + d.w + ' × ' + d.h + ' · ' + fmtBytes(it.size); info.appendChild(a);
+    if (it.result) {
+      ready++;
+      var b = el('p', 'nums'); var bb = el('b', '', 'Kopie: ' + it.result.w + ' × ' + it.result.h + ' · ' + fmtBytes(it.result.blob.size)); b.appendChild(bb); info.appendChild(b);
+      var saving = Math.round((1 - it.result.blob.size / it.size) * 100);
+      if (!it.example && saving > 0) info.appendChild(el('span', 'pill ok', saving + ' % kleiner'));
+      if (it.result.note) info.appendChild(el('p', 'msg warn', it.result.note));
+    }
+    var acts = el('div', 'row');
+    if (it.result) {
+      var s = el('button', 'btn small', 'Kopie speichern'); s.type = 'button'; s.style.borderColor = 'var(--brand)';
+      s.addEventListener('click', function(){ saveBlob(it.result.blob, it.result.name).then(function(r){ reportSave(r, it.result.name); }); });
+      acts.appendChild(s);
+    }
+    var r = el('button', 'btn small', 'Drehen'); r.type = 'button'; r.setAttribute('aria-label', it.name + ' um 90 Grad drehen');
+    r.addEventListener('click', function(){ if (busy) return; it.rot = (it.rot + 90) % 360; if (it.result) { try { URL.revokeObjectURL(it.result.url); } catch (e) {} it.result = null; } render(); });
+    acts.appendChild(r);
+    var x = el('button', 'btn small', 'Entfernen'); x.type = 'button'; x.setAttribute('aria-label', it.name + ' aus der Liste entfernen');
+    x.addEventListener('click', function(){ if (busy) return; release(it); items = items.filter(function(o){ return o !== it; }); render(); });
+    acts.appendChild(x);
+    info.appendChild(acts);
+    card.appendChild(info);
+    list.appendChild(card);
+  });
+  $('zip').hidden = ready < 2;
+  $('clear').hidden = !items.length;
+}
+
+/* ---------- Freie Größe: zweiten Wert berechnen ---------- */
+function syncFree(changed){
+  var first = items[0]; if (!first) return;
+  var d = dims(first);
+  if (changed === 'fw' && +S.fw > 0) { S.fh = String(Math.max(1, Math.round(+S.fw * d.h / d.w))); $('fh').value = S.fh; }
+  if (changed === 'fh' && +S.fh > 0) { S.fw = String(Math.max(1, Math.round(+S.fh * d.w / d.h))); $('fw').value = S.fw; }
+}
+
+/* ---------- Ereignisse ---------- */
+$('pick').addEventListener('change', function(e){ addFiles(e.target.files); e.target.value = ''; });
+$('cam').addEventListener('change', function(e){ addFiles(e.target.files); e.target.value = ''; });
+$('clear').addEventListener('click', function(){ if (busy) return; items.forEach(release); items = []; setStatus(''); render(); });
+$('modes').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.mode; persist(); applySettings(); });
+$('pct').addEventListener('input', function(e){ S.pct = +e.target.value; $('pctOut').textContent = S.pct + ' %'; persist(); });
+document.querySelectorAll('[data-pct]').forEach(function(b){ b.addEventListener('click', function(){ S.pct = +b.dataset.pct; persist(); applySettings(); }); });
+$('preset').addEventListener('change', function(e){ S.preset = e.target.value; persist(); });
+$('fw').addEventListener('input', function(e){ S.fw = e.target.value; syncFree('fw'); persist(); $('sizeMsg').hidden = true; });
+$('fh').addEventListener('input', function(e){ S.fh = e.target.value; syncFree('fh'); persist(); $('sizeMsg').hidden = true; });
+$('mb').addEventListener('change', function(e){ S.mb = e.target.value; persist(); });
+$('fmt').addEventListener('change', function(e){ S.fmt = e.target.value; persist(); applySettings(); });
+$('q').addEventListener('input', function(e){ S.q = +e.target.value; $('qOut').textContent = S.q + ' %'; persist(); });
+$('suffix').addEventListener('input', function(e){ S.suffix = e.target.value.replace(/[\\\/:*?"<>|]/g, ''); persist(); });
+$('go').addEventListener('click', run);
+$('zip').addEventListener('click', saveZip);
+
+/* ---------- Beispielbild, bis eigene Fotos gewählt sind ---------- */
+function makeExample(){
+  var c = mkCanvas(2400, 1800), x = c.getContext('2d');
+  x.fillStyle = '#BFD6F2'; x.fillRect(0, 0, 2400, 1800);
+  x.fillStyle = '#FFFFFF'; x.beginPath(); x.arc(1850, 420, 150, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#5E86B8'; x.beginPath(); x.moveTo(0, 1800); x.lineTo(700, 700); x.lineTo(1150, 1300); x.lineTo(1500, 950); x.lineTo(2400, 1800); x.closePath(); x.fill();
+  x.fillStyle = '#14325C'; x.beginPath(); x.moveTo(0, 1800); x.lineTo(500, 1250); x.lineTo(900, 1600); x.lineTo(1700, 1150); x.lineTo(2400, 1800); x.closePath(); x.fill();
+  toBlob(c, 'image/jpeg', 0.92).then(function(b){
+    if (!b || items.length) return;
+    var f; try { f = new File([b], 'Beispielbild.jpg', { type: 'image/jpeg' }); } catch (e) { return; }
+    loadFile(f, true).then(function(it){ if (it && !items.length) { items.push(it); render(); } });
+  });
+}
+
+applySettings();
+render();
+makeExample();
+})();
+</script>
+</body>
+</html>
